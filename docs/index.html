@@ -87,7 +87,6 @@
             let teavm;
             try {
                 teavm = await TeaVM.wasmGC.load("./teavm/classes.wasm", {
-                    stackDeobfuscator: { enabled: true },
                     installImports: (imports) => {
                         imports.teavmConsole = imports.teavmConsole || {};
                         imports.teavmConsole.putcharStdout = onChar;
@@ -100,9 +99,9 @@
                 return;
             }
 
-            const terminal = teavm.exports.Terminal;
-            if (!terminal || typeof terminal.deliverLine !== "function") {
-                fail("The build does not export Terminal.deliverLine(). Rebuild with `mvn package`.");
+            const webInput = teavm.exports.WebInput;
+            if (!webInput || typeof webInput.deliverLine !== "function") {
+                fail("The build does not export WebInput.deliverLine(). Rebuild with `mvn package`.");
                 return;
             }
 
@@ -131,7 +130,7 @@
                     if (code === 13) {              // Enter
                         term.write("\r\n");
                         ready = false;
-                        terminal.deliverLine(lineBuffer);
+                        webInput.deliverLine(lineBuffer);
                         lineBuffer = "";
                     } else if (code === 127 || code === 8) {  // Backspace
                         if (lineBuffer.length > 0) {
