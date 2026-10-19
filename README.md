@@ -19,8 +19,33 @@ Projektet udvikles som et terminalprogram i Java med fokus på objektorienteret 
 Terminalprogrammet er det egentlige program:
 
 ```sh
-mvn compile exec:java -Dexec.mainClass=Main
+mvn compile exec:java -Dexec.mainClass=org.example.Main
 ```
+
+## Arkitektur: terminal-IO bag et interface
+
+Al programlogik ligger i `FilmSamlingApp` og kender kun interfacet
+`org.example.terminal.Terminal` (`readLine`, `print`, `println`). Programmets
+kode indeholder derfor ingen `Scanner`, `System.in` eller `System.out`.
+
+Der findes to implementeringer af interfacet:
+
+| Klasse | Bruges af | Læser input via |
+|--------|-----------|-----------------|
+| `ConsoleTerminal` | `Main` (desktop) | `Scanner(System.in)` |
+| `WebTerminal` | `BrowserMain` (browser) | xterm-terminalen i `docs/index.html` |
+
+De to indgangspunkter (`Main` og `BrowserMain`) vælger hver sin implementering og
+starter det samme `FilmSamlingApp`. Forskellen mellem desktop og browser er
+altså kun hvilken terminal der sættes ind — ikke programmets opførsel.
+
+Browseren kan ikke blokere, så `WebTerminal.readLine()` kompileres af TeaVM til
+en coroutine: kaldet "venter" uden at blokere siden, og genoptages når brugeren
+trykker Enter. Set fra `FilmSamlingApp` opfører den sig som et almindeligt
+blokerende kald.
+
+Den eneste browser-specifikke kode er `WebTerminal` samt `WebInput`, som siden
+kalder for at aflevere indtastede linjer.
 
 ## Browser-version
 
