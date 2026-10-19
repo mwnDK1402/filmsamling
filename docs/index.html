@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filmsamling</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #000;
+        }
+        #terminal {
+            box-sizing: border-box;
+            width: 100%;
+            height: 100%;
+            padding: 8px;
+        }
+        #error {
+            display: none;
+            box-sizing: border-box;
+            padding: 16px;
+            color: #f38ba8;
+            background: #000;
+            font: 14px monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal"></div>
+    <div id="error"></div>
+
+    <!-- xterm.js + fit addon (CDN: nothing to install, works on GitHub Pages). -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+
+    <!-- TeaVM WebAssembly GC runtime loader, produced by `mvn package`. -->
+    <script src="./teavm/classes.wasm-runtime.js"></script>
+
+    <script>
+        (async function () {
+            "use strict";
+
+            const errorEl = document.getElementById("error");
+            const fail = (message) => {
+                errorEl.style.display = "block";
+                errorEl.textContent = message;
+                console.error(message);
+            };
+
+            const term = new Terminal({
+                cursorBlink: true,
+                fontFamily: "monospace",
+                fontSize: 14,
+                theme: { background: "#000000", foreground: "#ffffff" }
+            });
+
+            const fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.open(document.getElementById("terminal"));
+            fitAddon.fit();
+            window.addEventListener("resize", () => fitAddon.fit());
+
+            // ---- Output bridge: Java System.out/err -> terminal ----------------
+            let outputBuffer = "";
+            const flushOutput = () => {
+                if (outputBuffer.length > 0) {
+                    term.write(outputBuffer);
+                    outputBuffer = "";
+                }
+            };
+            const onChar = (charCode) => {
+                if (charCode === 10) {          // LF
+                    outputBuffer += "\r\n";
+                    flushOutput();
+                } else if (charCode === 13) {   // CR (already emitted as CRLF)
+                    // ignore
+                } else {
+                    outputBuffer += String.fromCharCode(charCode);
+                }
+            };
+
+            // ---- Load the compiled Java program --------------------------------
+            let teavm;
+            try {
+                teavm = await TeaVM.wasmGC.load("./teavm/classes.wasm", {
+                    stackDeobfuscator: { enabled: true },
+                    installImports: (imports) => {
+                        imports.teavmConsole = imports.teavmConsole || {};
+                        imports.teavmConsole.putcharStdout = onChar;
+                        imports.teavmConsole.putcharStderr = onChar;
+                    }
+                });
+            } catch (e) {
+                fail("Failed to load the WebAssembly build (./teavm/classes.wasm).\n" +
+                     "Run `mvn package` and copy target/teavm into docs/teavm.\n\n" + e);
+                return;
+            }
+
+            const pushLine = teavm.exports.pushLine;
+            if (typeof pushLine !== "function") {
+                fail("The build does not export pushLine(). Rebuild with `mvn package`.");
+                return;
+            }
+
+            // ---- Input bridge: terminal keystrokes -> Java ---------------------
+            let lineBuffer = "";
+            term.onData((data) => {
+                for (const ch of data) {
+                    const code = ch.charCodeAt(0);
+                    if (code === 13) {              // Enter
+                        term.write("\r\n");
+                        pushLine(lineBuffer);
+                        lineBuffer = "";
+                    } else if (code === 127 || code === 8) {  // Backspace
+                        if (lineBuffer.length > 0) {
+                            lineBuffer = lineBuffer.slice(0, -1);
+                            term.write("\b \b");
+                        }
+                    } else if (code >= 32 || code === 9) {    // printable / tab
+                        lineBuffer += ch;
+                        term.write(ch);
+                    }
+                }
+            });
+
+            // Prints the banner and blocks (logically) on input.
+            teavm.exports.start();
+        })().catch((e) => {
+            const errorEl = document.getElementById("error");
+            errorEl.style.display = "block";
+            errorEl.textContent = String(e && e.stack ? e.stack : e);
+            console.error(e);
+        });
+    </script>
+</body>
+</html>
