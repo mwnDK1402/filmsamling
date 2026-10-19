@@ -100,20 +100,38 @@
                 return;
             }
 
-            const pushLine = teavm.exports.pushLine;
-            if (typeof pushLine !== "function") {
-                fail("The build does not export pushLine(). Rebuild with `mvn package`.");
+            const terminal = teavm.exports.Terminal;
+            if (!terminal || typeof terminal.deliverLine !== "function") {
+                fail("The build does not export Terminal.deliverLine(). Rebuild with `mvn package`.");
                 return;
             }
 
             // ---- Input bridge: terminal keystrokes -> Java ---------------------
+            //
+            // The program is a normal blocking read loop (Terminal.readLine()).
+            // TeaVM compiles that call as a coroutine, so whenever Java is
+            // waiting for a line it has already suspended and yielded control
+            // back here. This page does not drive the program; it only echoes
+            // what the user types and hands over each completed line.
+
             let lineBuffer = "";
+            let ready = false;
+
+            // Called by Java when it starts waiting for a line.
+            window.teavmAwaitInput = () => {
+                ready = true;
+            };
+
             term.onData((data) => {
+                if (!ready) {
+                    return;
+                }
                 for (const ch of data) {
                     const code = ch.charCodeAt(0);
                     if (code === 13) {              // Enter
                         term.write("\r\n");
-                        pushLine(lineBuffer);
+                        ready = false;
+                        terminal.deliverLine(lineBuffer);
                         lineBuffer = "";
                     } else if (code === 127 || code === 8) {  // Backspace
                         if (lineBuffer.length > 0) {
@@ -127,8 +145,10 @@
                 }
             });
 
-            // Prints the banner and blocks (logically) on input.
-            teavm.exports.start();
+            // Runs the real program. It prints its banner and then suspends at
+            // the first read; each delivered line resumes it exactly where it
+            // stopped, until it returns on its own.
+            teavm.exports.main([]);
         })().catch((e) => {
             const errorEl = document.getElementById("error");
             errorEl.style.display = "block";
