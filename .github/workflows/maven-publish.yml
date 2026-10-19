@@ -12,8 +12,8 @@ jobs:
 
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: write
+      packages: read
 
     steps:
     - uses: actions/checkout@v4
@@ -27,3 +27,10 @@ jobs:
 
     - name: Build with Maven
       run: mvn -B package --file pom.xml
+
+    - name: Attach artifact to release
+      uses: softprops/action-gh-release@v2
+      with:
+        # This glob pattern will pick up the built JAR(s) in the target directory.
+        # It can be adjusted to match your specific artifact name (e.g., 'target/*-shaded.jar').
+        files: target/*.jar
