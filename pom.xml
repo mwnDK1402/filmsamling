@@ -32,6 +32,14 @@
             <version>${teavm.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- @Async, which turns blocking-looking input into TeaVM coroutines. -->
+        <dependency>
+            <groupId>org.teavm</groupId>
+            <artifactId>teavm-interop</artifactId>
+            <version>${teavm.version}</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
