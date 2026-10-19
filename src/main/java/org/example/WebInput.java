@@ -1,84 +1,80 @@
 package org.example;
 
-import org.teavm.interop.Async;
 import org.teavm.interop.AsyncCallback;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSExport;
-import org.teavm.jso.JSFunctor;
-import org.teavm.jso.JSObject;
 
 /**
- * Terminal I/O that looks blocking to the rest of the program.
+ * Line input from the web page, on the Java side.
  *
- * <p>{@link #readLine()} is declared {@code @Async}: TeaVM compiles it as a
- * coroutine, suspending the calling Java code until JavaScript delivers a line.
- * From the caller's point of view it is an ordinary blocking method, so normal
- * Java control flow (loops, {@code Scanner}-style reading) works unchanged.
+ * <p>The page calls {@link #deliverLine} once for each line the user submits;
+ * {@link org.example.terminal.WebTerminal} waits for those lines through
+ * {@link #awaitLine}, parking a coroutine callback until one arrives.
  *
- * <p>On the desktop this class is unused; the browser build replaces it with
- * real stdin/stdout.
+ * <p>Together with the page's bridge this is the only code in the project that
+ * knows a browser exists, and it is reached only through the browser build.
  */
-public final class Terminal {
-    private Terminal() {
+public final class WebInput {
+    private WebInput() {
     }
 
-    /** One waiting reader at a time — the app reads input strictly sequentially. */
-    private static AsyncCallback<String> pendingReader;
-    private static String deliveredLine;
+    /** Submitted lines that have not been read yet, in order. */
+    private static final java.util.ArrayDeque<String> lines = new java.util.ArrayDeque<>();
 
-    /** Called by JavaScript for every line the user types. */
-    @JSExport
-    public static void deliverLine(String line) {
-        if (pendingReader == null) {
-            // No read in progress: buffer the line until one is.
-            deliveredLine = line;
-            return;
-        }
-        AsyncCallback<String> reader = pendingReader;
-        pendingReader = null;
-        reader.complete(line);
-    }
+    /** The read that is waiting for a line, if any. */
+    private static AsyncCallback<String> waiter;
 
-    /** Signals end of input, so a waiting read can finish. */
-    @JSExport
-    public static void closeInput() {
-        if (pendingReader != null) {
-            AsyncCallback<String> reader = pendingReader;
-            pendingReader = null;
-            reader.complete(null);
-        } else {
-            inputClosed = true;
-        }
-    }
-
-    private static boolean inputClosed;
+    /** True once no more input will arrive. */
+    private static boolean closed;
 
     /**
-     * Reads one line, blocking (logically) until JavaScript supplies it.
-     * Returns {@code null} at end of input.
+     * Hands one submitted line to the program. Called by the page when the user
+     * presses Enter.
      */
-    @Async
-    public static native String readLine();
+    @JSExport
+    public static void deliverLine(String line) {
+        lines.addLast(line == null ? "" : line);
+        resume();
+    }
 
-    private static void readLine(AsyncCallback<String> callback) {
-        if (deliveredLine != null) {
-            String line = deliveredLine;
-            deliveredLine = null;
-            callback.complete(line);
+    /** Signals that no further input will arrive. */
+    @JSExport
+    public static void closeInput() {
+        closed = true;
+        resume();
+    }
+
+    /**
+     * Supplies the next submitted line to {@code callback}, parking it until
+     * one is available. Completes with {@code null} at end of input.
+     */
+    public static void awaitLine(AsyncCallback<String> callback) {
+        if (!lines.isEmpty()) {
+            callback.complete(lines.removeFirst());
             return;
         }
-        if (inputClosed) {
+        if (closed) {
             callback.complete(null);
             return;
         }
-        pendingReader = callback;
+        waiter = callback;
         requestInput();
     }
 
-    /**
-     * Tells the browser a read is outstanding. The page uses this to stop
-     * buffering typed input and start handing lines to {@link #deliverLine}.
-     */
+    /** Completes a parked read if a line is now available, or input has ended. */
+    private static void resume() {
+        if (waiter == null) {
+            return;
+        }
+        if (lines.isEmpty() && !closed) {
+            return;   // nothing to hand over yet; keep waiting
+        }
+        AsyncCallback<String> w = waiter;
+        waiter = null;
+        w.complete(lines.isEmpty() ? null : lines.removeFirst());
+    }
+
+    /** Tells the page that the program is waiting for a line. */
     @JSBody(script = "if (typeof window !== 'undefined' && window.teavmAwaitInput) { window.teavmAwaitInput(); }")
     private static native void requestInput();
 }
