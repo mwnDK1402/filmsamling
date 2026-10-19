@@ -12,6 +12,63 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <teavm.version>0.16.0</teavm.version>
     </properties>
 
+    <dependencies>
+        <!-- TeaVM's emulation of the Java class library (java.lang.*, java.util.* ...).
+             Only needed on the TeaVM compile classpath, never shipped in the JAR. -->
+        <dependency>
+            <groupId>org.teavm</groupId>
+            <artifactId>teavm-classlib</artifactId>
+            <version>${teavm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- JavaScript interop used by the browser entry point (@JSExport / @JSBody). -->
+        <dependency>
+            <groupId>org.teavm</groupId>
+            <artifactId>teavm-jso-apis</artifactId>
+            <version>${teavm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- TeaVM compiles BrowserMain into WebAssembly (Wasm GC). -->
+            <plugin>
+                <groupId>org.teavm</groupId>
+                <artifactId>teavm-maven-plugin</artifactId>
+                <version>${teavm.version}</version>
+                <executions>
+                    <execution>
+                        <id>web-client</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <targetDirectory>${project.build.directory}/teavm</targetDirectory>
+                            <mainClass>org.example.BrowserMain</mainClass>
+                            <targetType>WEBASSEMBLY_GC</targetType>
+                            <optimizationLevel>SIMPLE</optimizationLevel>
+                            <debugInformationGenerated>true</debugInformationGenerated>
+                            <sourceMapsGenerated>true</sourceMapsGenerated>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>web-client-runtime</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-webassembly-gc-runtime</goal>
+                        </goals>
+                        <configuration>
+                            <targetDirectory>${project.build.directory}/teavm</targetDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
