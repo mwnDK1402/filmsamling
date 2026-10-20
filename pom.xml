@@ -77,6 +77,40 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Copies the WebAssembly build into docs/teavm/, so the page
+                 always runs the code that was just compiled. Only the two
+                 files the page loads are copied; the .map and .teadbg files
+                 are for debugging and are not needed by the browser.
+
+                 This runs on every `mvn package`. A build therefore modifies
+                 docs/teavm/, which is intended: build, then commit. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>copy-web-build-to-docs</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.basedir}/docs/teavm</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.build.directory}/teavm</directory>
+                                    <includes>
+                                        <include>classes.wasm</include>
+                                        <include>classes.wasm-runtime.js</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

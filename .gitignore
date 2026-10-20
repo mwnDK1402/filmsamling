@@ -37,3 +37,8 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Browser build artifacts: only these two are served by docs/index.html
+docs/teavm/classes.wasm.map
+docs/teavm/classes.wasm.teadbg
+
