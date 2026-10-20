@@ -41,6 +41,8 @@ build/
 ### Browser build artifacts: produced by `mvn package`, never committed
 docs/teavm/
 
-### The desktop collection itself: created at runtime, never committed
+### The desktop collection. It lives in the per-user data directory (see
+### DataDirectory), so it should not appear here at all; this guards against a
+### stray file from an older checkout or a run started in the project root.
 films.csv
 

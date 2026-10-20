@@ -14,7 +14,9 @@ import java.util.List;
  * A CSV file on disk: the desktop implementation of {@link Storage}.
  *
  * <p>Reads and writes with {@code java.io}, one record per line. The file is
- * created on first write, so the program can start with nothing on disk.
+ * created on first write, so the program can start with nothing on disk. The
+ * directory it lives in is created at the same time, because the per-user data
+ * directory does not exist until an application puts something there.
  *
  * <p>Errors are rethrown as {@link UncheckedIOException} rather than left
  * checked, so callers do not have to wrap every call in {@code try/catch}. This
@@ -47,6 +49,11 @@ public final class FileStorage implements Storage {
 
     @Override
     public void writeLines(List<String> lines) {
+        File parent = file.getAbsoluteFile().getParentFile();
+        if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+            throw new UncheckedIOException(
+                    new IOException("Could not create directory " + parent));
+        }
         try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
             for (String line : lines) {
                 writer.println(line);
