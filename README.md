@@ -25,7 +25,7 @@ programmering, unit testing, fejlhåndtering, fillagring og sortering.
 2. [Arkitektur](#2-arkitektur) — hvordan koden hænger sammen
 3. [Teknologistak](#3-teknologistak) — hvad de enkelte dele er
 4. [Browser-versionen](#4-browser-versionen) — byg og test lokalt
-5. [Deploy til GitHub Pages](#5-deploy-til-github-pages) — fra kode til live-side
+5. [Deploy til GitHub Pages](#5-deploy-til-github-pages) — udgivelse via GitHub Actions
 6. [Kendte begrænsninger](#6-kendte-begrænsninger) — læs før du bruger `printf`
 
 ---
@@ -149,6 +149,7 @@ Ingen andre klasser i projektet nævner browseren.
 | **Maven**               | Byggværktøj                                              | Henter afhængigheder, kører `mvn package`      |
 | **TeaVM 0.16.0**        | Oversætter Java-bytecode til **WebAssembly**             | Så Java kan køre i browseren uden en server     |
 | **xterm.js 5.3.0**      | Terminal-emulator i JavaScript                           | Tegner terminalen i `docs/index.html`           |
+| **GitHub Actions**      | CI der bygger og udgiver                                 | Bygger wasm på ny og lægger `docs/` ud ved release |
 | **GitHub Pages**        | Gratis statisk webhotel                                  | Serverer `docs/` som en hjemmeside              |
 
 TeaVM er ikke en virtuel maskine og ikke en Java-applet. Det er et
@@ -255,45 +256,81 @@ perfekt, fordi browser-versionen netop er statiske filer.
 ![Byg og deploy](docs/diagrams/build-and-deploy.svg)
 
 > **Status:** browser-versionen ligger i øjeblikket kun på grenen `xterm`, og
-> `docs/` findes ikke på `master`. Pages skal derfor sættes op, efter grenen er
-> flettet ind — se trin 4.
+> `docs/` findes ikke på `master`. Workflowen skal derfor først i gang, efter
+> grenen er flettet ind — se afsnit 5.1.
 
-### 5.1 Få koden ind på standardgrenen
+Siden udgives af en **GitHub Actions-workflow**, `.github/workflows/deploy-pages.yml`.
+Man behøver altså ikke bygge lokalt for at opdatere hjemmesiden: GitHub bygger
+WebAssembly-filen på ny og lægger resultatet ud.
 
-Pages serverer fra én gren. Den skal indeholde `docs/`:
+### 5.1 Sådan udgives siden
 
-```sh
-git checkout master
-git merge xterm
-git push origin master
-```
+Workflowen kører i to situationer:
+
+| Situation                                  | Hvad der bliver udgivet                        |
+| ------------------------------------------ | ---------------------------------------------- |
+| Man **publisher en GitHub Release**        | Koden på det tag, der blev udgivet             |
+| Man trykker **Run workflow** i Actions-fanen | Den gren, man vælger (standard: `master`)     |
+
+Et almindeligt `git push` udgiver **ikke** noget. Det er med vilje: siden følger
+de versioner, man har besluttet at udgive, ikke hvert eneste commit.
+
+Sådan gør man, når noget skal live:
+
+1. Flet arbejdet ind i standardgrenen og skub op:
+   ```sh
+   git checkout master
+   git merge xterm
+   git push mathias master
+   ```
+2. Gå til **Releases** → **Draft a new release** på GitHub
+3. Skriv et tag, fx `v1.0`, og tryk **Publish release**
+4. Følg med under **Actions**-fanen. Efter et par minutter ligger siden på:
+
+   **<https://mwnDK1402.github.io/filmsamling/>**
 
 ### 5.2 Slå Pages til (gøres én gang)
 
+Workflowen forsøger selv at slå Pages til første gang den kører. Skal det gøres
+manuelt, eller fejler det:
+
 1. Gå til repository'et på GitHub: <https://github.com/mwnDK1402/filmsamling>
 2. **Settings** → **Pages** (i menuen til venstre)
-3. Under **Build and deployment** → **Source**: vælg **Deploy from a branch**
-4. Under **Branch**: vælg `master` og mappen **`/docs`**
-5. Tryk **Save**
+3. Under **Build and deployment** → **Source**: vælg **GitHub Actions**
 
-### 5.3 Vent og åbn
+> **Vigtigt:** kilden skal være **GitHub Actions**, ikke **Deploy from a branch**.
+> Vælger man en gren, ignorerer GitHub den udgivne pakke og viser i stedet den
+> `docs/`-mappe, der ligger i repository'et — altså den *gamle* version.
 
-Det tager typisk et par minutter første gang. Siden ligger herefter på:
+### 5.3 Hvad workflowen gør, trin for trin
 
-**<https://mwnDK1402.github.io/filmsamling/>**
+Hele filen er kommenteret, men i overskrifter:
 
-### 5.4 Fremover: opdatér siden
+1. **Checkout** — henter koden. Ved en release hentes netop dét tag.
+2. **Setup Java 21** — installerer et JDK på runneren.
+3. **`mvn package`** — kompilerer Java-koden og kører TeaVM, som skriver
+   `docs/teavm/`.
+4. **`configure-pages`** — slår Pages til og læser sidens adresse.
+5. **Verify** — tjekker at `.wasm`-filen faktisk blev produceret. Uden den ville
+   siden blive udgivet uden at kunne køre, og fejlen ville først vise sig i
+   browseren.
+6. **Upload + Deploy** — pakker `docs/` og lægger den ud.
 
-```sh
-mvn package
-git add docs/teavm
-git commit -m "Update the browser build"
-git push
-```
+### 5.4 Om at bygge i CI
 
-`mvn package` kopierer selv de nye filer til `docs/teavm/`, så der er ingen
-manuel kopiering. GitHub opdager ændringen og opdaterer siden inden for et
-minuts tid.
+Workflowen bygger selv, frem for at bruge de `docs/teavm/`-filer, der ligger i
+repository'et. Det er et bevidst valg:
+
+- En udgivelse kan ikke komme til at vise en **forældet** side, fordi nogen
+  glemte at bygge og committe inden de taggede.
+- Siden svarer altid til kildekoden i det tag, der blev udgivet.
+
+Prisen er, at den `.wasm`, der ligger på GitHub Pages, kommer fra CI-bygget og
+ikke fra den committede fil. De er bygget af samme kode med samme versioner og
+bør være identiske — men det er altså ikke garanteret ved et rent commit.
+
+Den lokale `mvn package`-kopiering findes stadig, og bruges til at teste på sin
+egen maskine (afsnit 4.1) og til at kunne se ændringen i git, inden den udgives.
 
 ### Om stier på siden
 
@@ -309,16 +346,14 @@ Med en absolut sti ville browseren lede efter filen på
 `mwnDK1402.github.io/teavm/...`, hvor den ikke findes. Brug derfor altid `./`
 i nye stier.
 
-### Alternativ: GitHub Actions
+### Udgivelse sker fra ét repository
 
-Kopieringen sker nu lokalt som en del af `mvn package`. Man kan gå et skridt
-videre og lade GitHub bygge og udgive siden ved hvert push med en GitHub
-Actions-workflow. Det er ikke gjort her, fordi den lokale kopi er nemmere at
-gennemskue: det, der ligger i `docs/`, er præcis det, der bliver vist, og man
-kan se ændringen i git, før den ryger ud.
+Workflowen ligger i repository'et og følger med til begge remotes. GitHub Pages
+skal slås til på **det** repository, hvis adresse man vil bruge — her
+`mwnDK1402/filmsamling`. Udgiver man i stedet fra `NikitaM2527/filmsamling`,
+bliver adressen `nikitam2527.github.io/filmsamling/`.
 
-Reprojektet har i forvejen `.github/workflows/maven-publish.yml`, men den bygger
-kun en `.jar` ved en release — den rører ikke `docs/`.
+Det koster ikke GitHub Actions-minutter at udgive et offentligt repository.
 
 ---
 
@@ -370,5 +405,7 @@ præcis det og ligge direkte i den mappe, der er valgt under Pages-indstillinger
 | Ændringer i Java slår ikke igennem        | Glemt at bygge. Kør `mvn package` (den kopierer selv til `docs/teavm/`). |
 | `file:///...` virker ikke                 | Siden skal køre via `http://`. Kør trin 4.2.                             |
 | `Could not find or load main class`       | Brug det fulde navn: `-Dexec.mainClass=org.example.Main`.                |
-| 404 på GitHub Pages                       | `docs/index.html` mangler på den gren, Pages serverer fra. Se trin 5.    |
+| 404 på GitHub Pages                       | Kilden under Settings → Pages står på en gren. Vælg **GitHub Actions**.  |
+| GitHub Pages viser en gammel version      | Samme: udgivelsen overskrives, hvis kilden er en gren. Se afsnit 5.2.    |
+| Workflowen fejler i "Verify"-trinnet      | `mvn package` producerede ingen `.wasm`. Læs loggen fra byggetrinnet.    |
 | `UnknownFormatConversionException`        | `%n`, `%e` eller `%t` brugt i browseren. Se afsnit 6.                    |
