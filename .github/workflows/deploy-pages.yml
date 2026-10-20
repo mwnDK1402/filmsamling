@@ -1,0 +1,100 @@
+name: Deploy browser version to GitHub Pages
+
+# Publishes docs/ as a static site, so the browser version of the app is
+# reachable at https://mwnDK1402.github.io/filmsamling/.
+#
+# The WebAssembly build is produced here on the runner rather than being taken
+# from the committed docs/teavm/ files. The site therefore always matches the
+# source code of the release, and a release cannot ship a stale page because
+# someone forgot to run `mvn package` and commit before tagging.
+#
+# One consequence: the wasm served by Pages comes from this build, not from
+# the committed copy. The two are expected to be identical; they are built
+# from the same source with the same pins.
+
+on:
+  # Publishing a GitHub Release deploys the page for that release. Drafting a
+  # release does not: the repository is only touched once it goes public.
+  release:
+    types: [published]
+
+  # Lets a maintainer redeploy the current default branch without cutting a
+  # release, for example to re-publish after a Pages outage.
+  workflow_dispatch:
+
+# Read the repository, write the Pages deployment, and mint the OIDC token
+# that proves to GitHub which workflow is publishing.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race. Unlike the usual `cancel-in-progress: true`,
+# this queue does not cancel a deploy that is already running, so a release
+# is never abandoned halfway through.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build wasm and stage the site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        # For a release, build the tag that was released. For a manual run,
+        # fall back to whatever the default branch points at.
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # Compiles the Java sources, then runs TeaVM to emit target/teavm/ and
+      # copy classes.wasm + classes.wasm-runtime.js into docs/teavm/.
+      - name: Build the WebAssembly bundle
+        run: mvn -B --no-transfer-progress package
+
+      # check: true is used instead of true/false. The expanded value is the
+      # string "true", which the action compares exactly; a boolean true gets
+      # stringified to "True" and is silently treated as false.
+      - name: Enable GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      # The page needs the Java build output that `mvn package` just wrote into
+      # docs/teavm/. Failing here means the site would load without its wasm.
+      - name: Verify the wasm build landed in docs/
+        run: |
+          set -euo pipefail
+          for f in docs/teavm/classes.wasm docs/teavm/classes.wasm-runtime.js docs/index.html; do
+            if [ ! -s "$f" ]; then
+              echo "::error file=$f::missing or empty; refusing to deploy a broken page"
+              exit 1
+            fi
+          done
+          echo "Staging these files:"
+          find docs -type f | sort
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
