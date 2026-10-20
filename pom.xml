@@ -79,12 +79,15 @@
             </plugin>
 
             <!-- Copies the WebAssembly build into docs/teavm/, so the page
-                 always runs the code that was just compiled. Only the two
-                 files the page loads are copied; the .map and .teadbg files
-                 are for debugging and are not needed by the browser.
+                 can be served straight from docs/ during local development.
+                 Only the two files the page loads are copied; the .map and
+                 .teadbg files are for debugging and are not needed by the
+                 browser.
 
-                 This runs on every `mvn package`. A build therefore modifies
-                 docs/teavm/, which is intended: build, then commit. -->
+                 docs/teavm/ is not committed - see .gitignore. It is a build
+                 product, and on GitHub Pages the site is built in CI by
+                 .github/workflows/deploy-pages.yml instead. This copy exists
+                 purely so `python3 -m http.server -d docs` works locally. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>

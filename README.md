@@ -214,10 +214,13 @@ Kopieringen er sat op i `pom.xml` (`copy-web-build-to-docs`) og kopierer kun
 disse to filer. `classes.wasm.map` og `classes.wasm.teadbg` bruges kun til
 fejlfinding, hentes aldrig af siden, og kopieres derfor ikke.
 
-> **Bemærk:** fordi kopieringen sker automatisk, ændrer `mvn package` filer inde
-> i `docs/teavm/`. Det er meningen: byg, og commit derefter. Har man kun bygget
-> for at tjekke, at koden kompilerer, kan man fortryde ændringen med
-> `git checkout docs/teavm`.
+> **`docs/teavm/` er ikke med i git.** Det er byggeriets output, ikke kildekode,
+> og står i `.gitignore`. Formålet med kopieringen er udelukkende at gøre den
+> lokale test i afsnit 4.2 mulig. Den side, der ligger på GitHub Pages, bliver
+> bygget forfra af workflowen — se afsnit 5.
+
+> **Efter et friskt `git clone`:** `docs/teavm/` findes ikke endnu. Kør
+> `mvn package` én gang, så er siden klar til at blive testet lokalt.
 
 ### 4.2 Test lokalt
 
@@ -318,19 +321,17 @@ Hele filen er kommenteret, men i overskrifter:
 
 ### 5.4 Om at bygge i CI
 
-Workflowen bygger selv, frem for at bruge de `docs/teavm/`-filer, der ligger i
-repository'et. Det er et bevidst valg:
+Workflowen bygger selv, frem for at bruge et færdigt byggeri fra repository'et.
+Det er et bevidst valg:
 
 - En udgivelse kan ikke komme til at vise en **forældet** side, fordi nogen
-  glemte at bygge og committe inden de taggede.
+  glemte at bygge inden de taggede.
 - Siden svarer altid til kildekoden i det tag, der blev udgivet.
+- Der ligger ikke kompilerede filer i git, som kan blive forældede i forhold
+  til kildekoden. `docs/teavm/` er ignoreret og findes kun lokalt.
 
-Prisen er, at den `.wasm`, der ligger på GitHub Pages, kommer fra CI-bygget og
-ikke fra den committede fil. De er bygget af samme kode med samme versioner og
-bør være identiske — men det er altså ikke garanteret ved et rent commit.
-
-Den lokale `mvn package`-kopiering findes stadig, og bruges til at teste på sin
-egen maskine (afsnit 4.1) og til at kunne se ændringen i git, inden den udgives.
+Den lokale `mvn package`-kopiering (afsnit 4.1) bruges derfor kun til at teste
+på sin egen maskine, inden man udgiver.
 
 ### Om stier på siden
 
@@ -401,8 +402,8 @@ præcis det og ligge direkte i den mappe, der er valgt under Pages-indstillinger
 
 | Symptom                                   | Årsag og løsning                                                        |
 |-------------------------------------------|-------------------------------------------------------------------------|
-| Siden er tom / fejlbesked om wasm         | `docs/teavm/classes.wasm` mangler. Kør `mvn package`.                    |
-| Ændringer i Java slår ikke igennem        | Glemt at bygge. Kør `mvn package` (den kopierer selv til `docs/teavm/`). |
+| Siden er tom / fejlbesked om wasm         | `docs/teavm/` mangler lokalt. Kør `mvn package`.                         |
+| Ændringer i Java slår ikke igennem lokalt | Glemt at bygge. Kør `mvn package` (den kopierer selv til `docs/teavm/`). |
 | `file:///...` virker ikke                 | Siden skal køre via `http://`. Kør trin 4.2.                             |
 | `Could not find or load main class`       | Brug det fulde navn: `-Dexec.mainClass=org.example.Main`.                |
 | 404 på GitHub Pages                       | Kilden under Settings → Pages står på en gren. Vælg **GitHub Actions**.  |
