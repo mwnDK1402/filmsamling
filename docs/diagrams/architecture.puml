@@ -24,11 +24,14 @@ package "Desktop (JVM)" #EAF6EA {
     class Main <<entry point>> {
         + main(args)
         - new ConsoleTerminal()
-        - new FileStorage("films.csv")
+        - new FileStorage(path)
     }
     class FileStorage {
         + readLines()
         + writeLines(lines)
+    }
+    class DataDirectory <<platform data dir>> {
+        + collectionFile() : Path
     }
 }
 
@@ -75,6 +78,7 @@ class ConsoleTerminal {
 
 Main --> ConsoleTerminal : creates
 Main --> FileStorage : creates
+Main --> DataDirectory : resolves the path with
 Main --> FilmSamlingApp : runs
 BrowserMain --> WebTerminal : creates
 BrowserMain --> LocalStorageStorage : creates
@@ -87,11 +91,12 @@ FilmSamlingApp o--> Terminal : uses only these
 FilmSamlingApp o--> Storage : uses only these
 WebTerminal --> WebInput : waits for lines
 WebInput ..> WebTerminal : resumes with a line
-FileStorage --> File : "films.csv"
+FileStorage --> File : "the collection file"
 LocalStorageStorage --> LocalStorage : localStorage
 
 class File <<java.io>> {
-    films.csv
+    films.csv in the
+    per-user data dir
 }
 class LocalStorage <<browser>> {
     localStorage
@@ -102,6 +107,14 @@ note bottom of FilmSamlingApp
   System.in, System.out, File or
   localStorage. It knows only the
   Terminal and Storage interfaces.
+end note
+
+note bottom of DataDirectory
+  ~/.local/share/filmsamling on Linux
+  (or $XDG_DATA_HOME), %APPDATA% on
+  Windows, ~/Library/Application Support
+  on macOS. Runtime data, so it stays out
+  of the project and survives a clean build.
 end note
 
 note right of WebTerminal

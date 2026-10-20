@@ -66,8 +66,21 @@ Og to implementeringer af `Storage`:
 
 | Klasse                | Bruges af     | Gemmer i                                |
 |-----------------------|---------------|-----------------------------------------|
-| `FileStorage`         | `Main`        | `films.csv` på disken                   |
+| `FileStorage`         | `Main`        | `films.csv` i brugerens data-mappe      |
 | `LocalStorageStorage` | `BrowserMain` | browserens `localStorage`               |
+
+På desktop ligger samlingen i **brugerens data-mappe**, ikke i projektet:
+
+| Styresystem | Placering                                        |
+|-------------|--------------------------------------------------|
+| Linux       | `~/.local/share/filmsamling/films.csv`           |
+| Windows     | `%APPDATA%\filmsamling\films.csv`                |
+| macOS       | `~/Library/Application Support/filmsamling/films.csv` |
+
+På Linux følges XDG-specifikationen, så `$XDG_DATA_HOME` bruges hvis den er sat.
+Mappen er valgt, fordi samlingen er **brugerens data**, ikke en del af
+kildekoden: den skal ikke ligge sammen med `src/`, og den skal overleve både
+`mvn clean` og en frisk klon. `DataDirectory` står for opslaget.
 
 > **Hvorfor ikke bare skrive til en fil i browseren?** TeaVM *har* faktisk
 > `java.io.File`, så det ville se ud som om det virkede. Men filsystemet ligger
@@ -79,7 +92,10 @@ starter `FilmSamlingApp`:
 
 ```java
 // Main.java — desktop
-new FilmSamlingApp(new ConsoleTerminal(), new FileStorage("films.csv")).run();
+// Stien slås op i brugerens data-mappe, se DataDirectory.
+new FilmSamlingApp(
+        new ConsoleTerminal(),
+        new FileStorage(DataDirectory.collectionFile().toString())).run();
 
 // BrowserMain.java — browser
 new FilmSamlingApp(new WebTerminal(), new LocalStorageStorage("filmsamling.films")).run();
