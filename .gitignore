@@ -42,3 +42,6 @@ build/
 docs/teavm/classes.wasm.map
 docs/teavm/classes.wasm.teadbg
 
+### The desktop collection itself: created at runtime, never committed
+films.csv
+
