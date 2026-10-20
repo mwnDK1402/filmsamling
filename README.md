@@ -49,9 +49,9 @@ Afbryd med `Ctrl+D` (Unix) eller `Ctrl+Z` efterfulgt af Enter (Windows).
 ## 2. Arkitektur
 
 Al programlogik ligger i **én** klasse, `FilmSamlingApp`. Den kender kun
-interfacet `Terminal` og indeholder derfor hverken `Scanner`, `System.in` eller
-`System.out`. Det er hele pointen: programmet ved ikke, om det kører i en
-terminal eller i en browser.
+interfacerne `Terminal` og `Storage` og indeholder derfor hverken `Scanner`,
+`System.in`, `System.out`, `File` eller `localStorage`. Det er hele pointen:
+programmet ved ikke, om det kører i en terminal eller i en browser.
 
 ![Arkitektur](docs/diagrams/architecture.svg)
 
@@ -62,18 +62,30 @@ Der findes to implementeringer af `Terminal`:
 | `ConsoleTerminal` | `Main`        | `Scanner(System.in)` — den rigtige konsol |
 | `WebTerminal`     | `BrowserMain` | xterm-terminalen i `docs/index.html`   |
 
-De to indgangspunkter gør nøjagtig det samme — vælger en terminal og starter
-`FilmSamlingApp`:
+Og to implementeringer af `Storage`:
+
+| Klasse                | Bruges af     | Gemmer i                                |
+|-----------------------|---------------|-----------------------------------------|
+| `FileStorage`         | `Main`        | `films.csv` på disken                   |
+| `LocalStorageStorage` | `BrowserMain` | browserens `localStorage`               |
+
+> **Hvorfor ikke bare skrive til en fil i browseren?** TeaVM *har* faktisk
+> `java.io.File`, så det ville se ud som om det virkede. Men filsystemet ligger
+> i hukommelsen og forsvinder, når siden genindlæses — samlingen ville stille og
+> roligt gå tabt. `localStorage` er det eneste, der overlever i en browser.
+
+De to indgangspunkter gør nøjagtig det samme — vælger en terminal og et lager og
+starter `FilmSamlingApp`:
 
 ```java
 // Main.java — desktop
-new FilmSamlingApp(new ConsoleTerminal()).run();
+new FilmSamlingApp(new ConsoleTerminal(), new FileStorage("films.csv")).run();
 
 // BrowserMain.java — browser
-new FilmSamlingApp(new WebTerminal()).run();
+new FilmSamlingApp(new WebTerminal(), new LocalStorageStorage("filmsamling.films")).run();
 ```
 
-Forskellen mellem desktop og browser er altså **kun** hvilken terminal der
+Forskellen mellem desktop og browser er altså **kun** hvilke implementeringer der
 sættes ind. Programmet opfører sig ens.
 
 ### Interfaces kontrakt
@@ -85,11 +97,23 @@ public interface Terminal {
     void print(String text);
     void printf(String format, Object... args);
 }
+
+public interface Storage {
+    List<String> readLines();                 // tom liste hvis intet er gemt
+    void writeLines(List<String> lines);      // erstatter hele indholdet
+    boolean exists();
+    void clear();
+}
 ```
 
-`FilmSamlingApp` bruger kun disse fire metoder. Skal der tilføjes noget nyt
+`FilmSamlingApp` bruger kun disse metoder. Skal der tilføjes noget nyt
 (lytterfarver, ryd skærm, spørg om bekræftelse), er det her, det skal ind — ikke
 i `System.out` rundt omkring i koden.
+
+`Storage` udveksler **linjer tekst**, én CSV-post pr. linje. Interfacet siger
+bevidst intet om, hvordan en linje deles op i felter — det er samlingens
+opgave, og den bliver liggende i applikationen, så begge builds parser ens.
+
 
 ### Hvorfor et interface og ikke bare `System.out`?
 
@@ -107,10 +131,11 @@ koden have brugt `Scanner` direkte.
 
 ### Browser-specifik kode
 
-Kun to klasser ved, at en browser findes:
+Kun tre klasser ved, at en browser findes:
 
 - `WebTerminal` — implementerer `Terminal` oven på siden
 - `WebInput` — modtager linjer fra siden og vækker den ventende coroutine
+- `LocalStorageStorage` — implementerer `Storage` oven på `localStorage`
 
 Ingen andre klasser i projektet nævner browseren.
 

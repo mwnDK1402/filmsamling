@@ -1,5 +1,5 @@
 @startuml architecture
-' Architecture: one app, two terminals.
+' Architecture: one app, two terminals and two storages.
 skinparam backgroundColor #FFFFFF
 skinparam defaultFontName "DejaVu Sans"
 skinparam shadowing false
@@ -24,6 +24,11 @@ package "Desktop (JVM)" #EAF6EA {
     class Main <<entry point>> {
         + main(args)
         - new ConsoleTerminal()
+        - new FileStorage("films.csv")
+    }
+    class FileStorage {
+        + readLines()
+        + writeLines(lines)
     }
 }
 
@@ -31,6 +36,7 @@ package "Browser (WebAssembly)" #FDF0E6 {
     class BrowserMain <<entry point>> {
         + main(args)
         - new WebTerminal()
+        - new LocalStorageStorage(key)
     }
     class WebInput <<JS bridge>> {
         + deliverLine(line)
@@ -38,6 +44,10 @@ package "Browser (WebAssembly)" #FDF0E6 {
     }
     class WebTerminal {
         + readLine()  {coroutine}
+    }
+    class LocalStorageStorage {
+        + readLines()
+        + writeLines(lines)
     }
 }
 
@@ -52,29 +62,59 @@ interface Terminal <<interface>> {
     + printf(format, args...)
 }
 
+interface Storage <<interface>> {
+    + readLines() : List<String>
+    + writeLines(lines)
+    + exists() : boolean
+    + clear()
+}
+
 class ConsoleTerminal {
     + readLine()
 }
 
 Main --> ConsoleTerminal : creates
+Main --> FileStorage : creates
 Main --> FilmSamlingApp : runs
 BrowserMain --> WebTerminal : creates
+BrowserMain --> LocalStorageStorage : creates
 BrowserMain --> FilmSamlingApp : runs
 ConsoleTerminal ..|> Terminal
 WebTerminal ..|> Terminal
-FilmSamlingApp o--> Terminal : uses only this
+FileStorage ..|> Storage
+LocalStorageStorage ..|> Storage
+FilmSamlingApp o--> Terminal : uses only these
+FilmSamlingApp o--> Storage : uses only these
 WebTerminal --> WebInput : waits for lines
 WebInput ..> WebTerminal : resumes with a line
+FileStorage --> File : "films.csv"
+LocalStorageStorage --> LocalStorage : localStorage
+
+class File <<java.io>> {
+    films.csv
+}
+class LocalStorage <<browser>> {
+    localStorage
+}
 
 note bottom of FilmSamlingApp
   The program never mentions Scanner,
-  System.in or System.out.
-  It knows only Terminal.
+  System.in, System.out, File or
+  localStorage. It knows only the
+  Terminal and Storage interfaces.
 end note
 
 note right of WebTerminal
   readLine() compiles to a coroutine:
   it suspends instead of blocking
   the browser's single thread.
+end note
+
+note bottom of LocalStorageStorage
+  TeaVM does provide java.io.File in the
+  browser, but it lives in memory and is
+  lost on reload, so localStorage is used
+  instead. The collection never silently
+  disappears.
 end note
 @enduml
