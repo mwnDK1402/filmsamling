@@ -25,8 +25,9 @@ mvn compile exec:java -Dexec.mainClass=org.example.Main
 ## Arkitektur: terminal-IO bag et interface
 
 Al programlogik ligger i `FilmSamlingApp` og kender kun interfacet
-`org.example.terminal.Terminal` (`readLine`, `print`, `println`). Programmets
-kode indeholder derfor ingen `Scanner`, `System.in` eller `System.out`.
+`org.example.terminal.Terminal` (`readLine`, `print`, `println`, `printf`).
+Programmets kode indeholder derfor ingen `Scanner`, `System.in` eller
+`System.out`.
 
 Der findes to implementeringer af interfacet:
 
@@ -46,6 +47,20 @@ blokerende kald.
 
 Den eneste browser-specifikke kode er `WebTerminal` samt `WebInput`, som siden
 kalder for at aflevere indtastede linjer.
+
+### Formateret output
+
+`printf` bruger samme formatstrenge som `String.format`, men browser-versionen
+er dyrere og mindre komplet end desktop-versionen:
+
+- Den første brug af `printf` trækker TeaVMs `Formatter`-understøttelse ind og
+  øger wasm-filen fra ca. 22 KB til ca. 227 KB. Har man ikke brug for
+  formatstrenge, er almindelig streng-sammensætning billigere.
+- `%n`, `%e` og `%t` er **ikke** understøttet i browseren og kaster
+  `UnknownFormatConversionException` under kørsel. Brug `\n` i stedet for `%n`.
+
+Alt andet — herunder `%d`, `%s`, `%f`, `%-10s`, `%05d`, `%x` og `%,d` — virker
+ens i begge versioner.
 
 ## Browser-version
 
