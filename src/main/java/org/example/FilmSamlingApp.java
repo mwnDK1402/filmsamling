@@ -26,7 +26,7 @@ public final class FilmSamlingApp {
 
     /** Runs until the user enters an empty line. */
     public void run() {
-        terminal.println("Filmsamling - prototype af lageret.");
+        terminal.println("Filmsamling - prototype af lageret: nu med GitHub Actions!");
 
         List<String> entries = storage.readLines();
         if (storage.exists()) {
