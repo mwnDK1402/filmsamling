@@ -32,4 +32,23 @@ public interface Terminal {
     default void println() {
         println("");
     }
+
+    /**
+     * Writes formatted text with no line break, using the same format strings
+     * as {@link String#format}.
+     *
+     * <p>Note for the browser build: formatting is the one expensive feature in
+     * the terminal layer. The first use of this method pulls in TeaVM's
+     * {@code Formatter} support and enlarges the WebAssembly download
+     * considerably, so reach for it deliberately rather than by default.
+     *
+     * <p>It is also less complete there than on the desktop. Conversions the
+     * browser build does <em>not</em> support are {@code %n}, {@code %e} and
+     * {@code %t}; each throws {@code UnknownFormatConversionException} at
+     * runtime instead of during the build. Use {@code \n} rather than
+     * {@code %n}, and avoid the other two.
+     */
+    default void printf(String format, Object... args) {
+        print(String.format(format, args));
+    }
 }

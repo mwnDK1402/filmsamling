@@ -1,4 +1,4 @@
-package org.example;
+package org.example.terminal;
 
 import org.teavm.interop.AsyncCallback;
 import org.teavm.jso.JSBody;
@@ -8,8 +8,8 @@ import org.teavm.jso.JSExport;
  * Line input from the web page, on the Java side.
  *
  * <p>The page calls {@link #deliverLine} once for each line the user submits;
- * {@link org.example.terminal.WebTerminal} waits for those lines through
- * {@link #awaitLine}, parking a coroutine callback until one arrives.
+ * {@link WebTerminal} waits for those lines through {@link #awaitLine}, parking
+ * a coroutine callback until one arrives.
  *
  * <p>Together with the page's bridge this is the only code in the project that
  * knows a browser exists, and it is reached only through the browser build.

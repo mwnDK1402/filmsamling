@@ -1,6 +1,7 @@
 package org.example;
 
 import org.example.terminal.Terminal;
+import org.example.terminal.WebInput;
 import org.example.terminal.WebTerminal;
 
 /**
