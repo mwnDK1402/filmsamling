@@ -164,36 +164,36 @@ terminaludgaven, og teamet behøver ikke forholde sig til den til daglig.
 Der er bevidst **ingen automatisk kopiering**. Bygger man browser-versionen, er
 det en bevidst handling, man selv udfører.
 
-### 4.1 Byg
+### 4.1 Byg og kopiér
 
 ```sh
 mvn package
 ```
 
-Output havner i `target/teavm/`. Det er *ikke* den mappe, siden læser — den
-skal først kopieres.
+Det er **alt**. Kommandoen gør to ting:
 
-### 4.2 Kopiér til `docs/`
+1. Oversætter Java-koden til WebAssembly i `target/teavm/`.
+2. Kopierer automatisk de to nødvendige filer videre til `docs/teavm/`, hvor
+   siden læser dem.
 
-```sh
-cp target/teavm/classes.wasm target/teavm/classes.wasm-runtime.js docs/teavm/
-```
+Man behøver altså ikke selv kopiere noget — heller ikke efter ændringer i
+Java-koden. Bygger man, følger siden med.
 
-Kun de to filer er nødvendige:
+| Fil                       | Nødvendig? | Indhold                               |
+|---------------------------|-----------|---------------------------------------|
+| `classes.wasm`            | **ja**    | Selve det kompilerede program          |
+| `classes.wasm-runtime.js` | **ja**    | Loader, der starter `.wasm`-filen      |
 
-| Fil                          | Nødvendig? | Indhold                                  |
-|------------------------------|-----------|------------------------------------------|
-| `classes.wasm`               | **ja**    | Selve det kompilerede program             |
-| `classes.wasm-runtime.js`    | **ja**    | Loader, der starter `.wasm`-filen         |
-| `classes.wasm.map`           | nej       | Fejlfinding: kobler wasm til Java-kilden  |
-| `classes.wasm.teadbg`        | nej       | Fejlfinding: navne på klasser og metoder  |
+Kopieringen er sat op i `pom.xml` (`copy-web-build-to-docs`) og kopierer kun
+disse to filer. `classes.wasm.map` og `classes.wasm.teadbg` bruges kun til
+fejlfinding, hentes aldrig af siden, og kopieres derfor ikke.
 
-De to sidste er kun til fejlfinding og hentes ikke af siden.
+> **Bemærk:** fordi kopieringen sker automatisk, ændrer `mvn package` filer inde
+> i `docs/teavm/`. Det er meningen: byg, og commit derefter. Har man kun bygget
+> for at tjekke, at koden kompilerer, kan man fortryde ændringen med
+> `git checkout docs/teavm`.
 
-> **Husk:** efter ændringer i Java-koden skal begge trin køres igen. Retter man
-> kun i Java og glemmer at kopiere, kører siden stadig den gamle kode.
-
-### 4.3 Test lokalt
+### 4.2 Test lokalt
 
 ```sh
 python3 -m http.server 8011 -d docs
@@ -210,7 +210,7 @@ En simpel filserver er nok, fordi alt er statiske filer. Browseren henter
 
 Tryk `Ctrl+C` i terminalen for at stoppe serveren.
 
-### 4.4 Hvad sker der på siden?
+### 4.3 Hvad sker der på siden?
 
 `docs/index.html` gør tre ting:
 
@@ -261,13 +261,14 @@ Det tager typisk et par minutter første gang. Siden ligger herefter på:
 
 ```sh
 mvn package
-cp target/teavm/classes.wasm target/teavm/classes.wasm-runtime.js docs/teavm/
 git add docs/teavm
-git commit -m "Rebuild the browser artifacts"
+git commit -m "Update the browser build"
 git push
 ```
 
-GitHub opdager selv ændringen og opdaterer siden inden for et minuts tid.
+`mvn package` kopierer selv de nye filer til `docs/teavm/`, så der er ingen
+manuel kopiering. GitHub opdager ændringen og opdaterer siden inden for et
+minuts tid.
 
 ### Om stier på siden
 
@@ -285,11 +286,14 @@ i nye stier.
 
 ### Alternativ: GitHub Actions
 
-Kopieringen kan automatiseres med en GitHub Actions-workflow, så `mvn package`
-og kopieringen sker på GitHub ved hvert push. Det er ikke gjort her, fordi den
-manuelle kopi er nemmere at gennemskue: hvad der ligger i `docs/`, er præcis
-hvad der bliver vist. Reprojektet har i forvejen `.github/workflows/maven-publish.yml`,
-men den bygger kun en `.jar` ved en release — den rører ikke `docs/`.
+Kopieringen sker nu lokalt som en del af `mvn package`. Man kan gå et skridt
+videre og lade GitHub bygge og udgive siden ved hvert push med en GitHub
+Actions-workflow. Det er ikke gjort her, fordi den lokale kopi er nemmere at
+gennemskue: det, der ligger i `docs/`, er præcis det, der bliver vist, og man
+kan se ændringen i git, før den ryger ud.
+
+Reprojektet har i forvejen `.github/workflows/maven-publish.yml`, men den bygger
+kun en `.jar` ved en release — den rører ikke `docs/`.
 
 ---
 
@@ -337,9 +341,9 @@ præcis det og ligge direkte i den mappe, der er valgt under Pages-indstillinger
 
 | Symptom                                   | Årsag og løsning                                                        |
 |-------------------------------------------|-------------------------------------------------------------------------|
-| Siden er tom / fejlbesked om wasm         | `docs/teavm/classes.wasm` mangler. Kør trin 4.1 og 4.2.                  |
-| Ændringer i Java slår ikke igennem        | Glemt at kopiere til `docs/teavm/`. Kør trin 4.2 igen.                    |
-| `file:///...` virker ikke                 | Siden skal køre via `http://`. Kør trin 4.3.                             |
+| Siden er tom / fejlbesked om wasm         | `docs/teavm/classes.wasm` mangler. Kør `mvn package`.                    |
+| Ændringer i Java slår ikke igennem        | Glemt at bygge. Kør `mvn package` (den kopierer selv til `docs/teavm/`). |
+| `file:///...` virker ikke                 | Siden skal køre via `http://`. Kør trin 4.2.                             |
 | `Could not find or load main class`       | Brug det fulde navn: `-Dexec.mainClass=org.example.Main`.                |
 | 404 på GitHub Pages                       | `docs/index.html` mangler på den gren, Pages serverer fra. Se trin 5.    |
 | `UnknownFormatConversionException`        | `%n`, `%e` eller `%t` brugt i browseren. Se afsnit 6.                    |

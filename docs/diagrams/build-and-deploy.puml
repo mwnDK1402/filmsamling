@@ -22,60 +22,54 @@ skinparam note {
     FontSize 12
 }
 
-title From Java source to a live web page
+title Fra Java-kildekode til live-side
 
-partition "Step 1 - write Java" #EAF6EA {
-    :Edit classes under src/main/java;
-    :Commit and push to GitHub;
+partition "Trin 1 - skriv Java" #EAF6EA {
+    :Ret klasser under src/main/java;
 }
 
-partition "Step 2 - build on your machine" #FDF0E6 {
-    :Run `mvn package`
-    (needs JDK 21);
+partition "Trin 2 - byg (én kommando)" #FDF0E6 {
+    :`mvn package`;
     note right
-      This produces two separate programs
-      from one source tree:
-      - a normal JVM build
-      - target/teavm/ WebAssembly output
+      Kompilerer kildekoden to gange
+      fra samme kode:
+      - target/*.jar  (almindelig JVM)
+      - target/teavm/ (WebAssembly)
     end note
-    :target/teavm/ is created;
-}
-
-partition "Step 3 - copy into docs/" #FFF3CD {
-    :Copy the build output
-    into docs/teavm/;
+    :TeaVM skriver til target/teavm/;
+    :Maven kopierer selv de to
+    nødvendige filer til docs/teavm/;
     note right
-      Only two files are really
-      needed by the page:
+      Automatisk, sat op i pom.xml
+      (copy-web-build-to-docs).
+      Kun:
       - classes.wasm
       - classes.wasm-runtime.js
-      There is no automated copy step:
-      it is done by hand on purpose.
+      Ingen manuel kopiering.
     end note
 }
 
-partition "Step 4 - check locally" #EAF6EA {
+partition "Trin 3 - tjek lokalt" #EAF6EA {
     :python3 -m http.server 8011 -d docs;
-    :Open http://localhost:8011/;
-    if (page works?) then (yes)
-        :commit the copied files;
-    else (no)
-        :fix and rebuild;
+    :Åbn http://localhost:8011/;
+    if (virker siden?) then (ja)
+    else (nej)
+        :ret koden, kør `mvn package` igen;
         stop
     endif
 }
 
-partition "Step 5 - deploy" #DCE6F2 {
-    :push docs/ to GitHub;
-    :GitHub Pages serves docs/ as the site;
+partition "Trin 4 - commit og udgiv" #DCE6F2 {
+    :commit docs/teavm og push til GitHub;
+    :GitHub Pages serverer docs/ som siden;
     note right
-      Enabled once in the repository:
+      Slås kun til én gang:
       Settings -> Pages
       -> Deploy from a branch
-      -> branch main, folder /docs
-      Nothing is built on GitHub's side.
+      -> master, mappe /docs
+      Intet bygges på GitHubs side.
     end note
-    :Page is live at
+    :Siden er live på
     https://mwnDK1402.github.io/filmsamling/;
 }
 
