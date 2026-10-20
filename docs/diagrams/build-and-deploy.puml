@@ -1,0 +1,82 @@
+@startuml build-and-deploy
+' Build and deploy pipeline, from Java source to a live page.
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "DejaVu Sans"
+skinparam shadowing false
+skinparam ArrowColor #4A6FA5
+skinparam activity {
+    BackgroundColor #F7F9FC
+    BorderColor #4A6FA5
+    FontSize 13
+    DiamondBackgroundColor #FFF8DC
+    DiamondBorderColor #C9A227
+}
+skinparam partition {
+    BackgroundColor #F2F5F9
+    BorderColor #8FA8C8
+    FontSize 14
+}
+skinparam note {
+    BackgroundColor #FFF8DC
+    BorderColor #C9A227
+    FontSize 12
+}
+
+title From Java source to a live web page
+
+partition "Step 1 - write Java" #EAF6EA {
+    :Edit classes under src/main/java;
+    :Commit and push to GitHub;
+}
+
+partition "Step 2 - build on your machine" #FDF0E6 {
+    :Run `mvn package`
+    (needs JDK 21);
+    note right
+      This produces two separate programs
+      from one source tree:
+      - a normal JVM build
+      - target/teavm/ WebAssembly output
+    end note
+    :target/teavm/ is created;
+}
+
+partition "Step 3 - copy into docs/" #FFF3CD {
+    :Copy the build output
+    into docs/teavm/;
+    note right
+      Only two files are really
+      needed by the page:
+      - classes.wasm
+      - classes.wasm-runtime.js
+      There is no automated copy step:
+      it is done by hand on purpose.
+    end note
+}
+
+partition "Step 4 - check locally" #EAF6EA {
+    :python3 -m http.server 8011 -d docs;
+    :Open http://localhost:8011/;
+    if (page works?) then (yes)
+        :commit the copied files;
+    else (no)
+        :fix and rebuild;
+        stop
+    endif
+}
+
+partition "Step 5 - deploy" #DCE6F2 {
+    :push docs/ to GitHub;
+    :GitHub Pages serves docs/ as the site;
+    note right
+      Enabled once in the repository:
+      Settings -> Pages
+      -> Deploy from a branch
+      -> branch main, folder /docs
+      Nothing is built on GitHub's side.
+    end note
+    :Page is live at
+    https://mwnDK1402.github.io/filmsamling/;
+}
+
+@enduml

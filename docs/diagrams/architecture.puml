@@ -1,0 +1,80 @@
+@startuml architecture
+' Architecture: one app, two terminals.
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "DejaVu Sans"
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 42
+
+skinparam class {
+    BackgroundColor #F7F9FC
+    BorderColor #4A6FA5
+    ArrowColor #4A6FA5
+    HeaderBackgroundColor #DCE6F2
+    FontSize 13
+}
+skinparam note {
+    BackgroundColor #FFF8DC
+    BorderColor #C9A227
+    FontSize 12
+}
+
+package "Desktop (JVM)" #EAF6EA {
+    class Main <<entry point>> {
+        + main(args)
+        - new ConsoleTerminal()
+    }
+}
+
+package "Browser (WebAssembly)" #FDF0E6 {
+    class BrowserMain <<entry point>> {
+        + main(args)
+        - new WebTerminal()
+    }
+    class WebInput <<JS bridge>> {
+        + deliverLine(line)
+        + closeInput()
+    }
+    class WebTerminal {
+        + readLine()  {coroutine}
+    }
+}
+
+class FilmSamlingApp <<program>> {
+    + run()
+}
+
+interface Terminal <<interface>> {
+    + readLine() : String
+    + println(line)
+    + print(text)
+    + printf(format, args...)
+}
+
+class ConsoleTerminal {
+    + readLine()
+}
+
+Main --> ConsoleTerminal : creates
+Main --> FilmSamlingApp : runs
+BrowserMain --> WebTerminal : creates
+BrowserMain --> FilmSamlingApp : runs
+ConsoleTerminal ..|> Terminal
+WebTerminal ..|> Terminal
+FilmSamlingApp o--> Terminal : uses only this
+WebTerminal --> WebInput : waits for lines
+WebInput ..> WebTerminal : resumes with a line
+
+note bottom of FilmSamlingApp
+  The program never mentions Scanner,
+  System.in or System.out.
+  It knows only Terminal.
+end note
+
+note right of WebTerminal
+  readLine() compiles to a coroutine:
+  it suspends instead of blocking
+  the browser's single thread.
+end note
+@enduml
